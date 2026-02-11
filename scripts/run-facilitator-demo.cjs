@@ -1,6 +1,15 @@
 const { spawn } = require("node:child_process");
 
-const env = { ...process.env, X402_MODE: "facilitator" };
+const port = process.env.LIVE_DEMO_PORT || "4012";
+const apiBaseUrl = `http://localhost:${port}`;
+const env = {
+  ...process.env,
+  X402_MODE: "facilitator",
+  PORT: port,
+  API_BASE_URL: apiBaseUrl,
+  CRONOS_CHAIN_ID: process.env.CRONOS_CHAIN_ID || "338",
+  ENFORCE_TESTNET: "true"
+};
 const dev = spawn("npm", ["run", "dev"], { stdio: "inherit", shell: true, env });
 
 const shutdown = () => {
@@ -15,7 +24,7 @@ const waitForServer = async () => {
   const deadline = Date.now() + 20000;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch("http://localhost:4000/health");
+      const response = await fetch(`${apiBaseUrl}/health`);
       if (response.ok) {
         return;
       }
@@ -28,7 +37,7 @@ const waitForServer = async () => {
 waitForServer()
   .then(() => {
     demoStarted = true;
-    const demo = spawn("npm", ["run", "demo:facilitator"], {
+    const demo = spawn("npm", ["run", "demo:live"], {
       stdio: "inherit",
       shell: true,
       env

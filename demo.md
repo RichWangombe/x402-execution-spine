@@ -2,7 +2,7 @@
 
 ## Goal
 
-Show a single multi-step workflow that verifies permission, executes two steps, settles USDC, and writes an audit record.
+Show one workflow that verifies payment, executes steps, settles USDC, and produces proof artifacts.
 
 ## Steps
 
@@ -32,6 +32,17 @@ The demo prints a JSON response with:
 - `settlement.txHash`
 - `auditRecordId`
 
-Switch to facilitator mode by setting `X402_MODE=facilitator` and providing real facilitator credentials.
+For a real testnet settlement:
 
-The demo includes an `Idempotency-Key` header and a retryable step (`parameters.retries`).
+```bash
+npm run run:live
+```
+
+Live demo output prints:
+- `402 issued`
+- `payment verified`
+- `settlement submitted`
+- `txHash`
+
+Live proof file:
+- `data/proofs/<workflowId>.json`

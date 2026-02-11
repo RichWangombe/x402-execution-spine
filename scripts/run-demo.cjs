@@ -1,6 +1,10 @@
 const { spawn } = require("node:child_process");
 
-const dev = spawn("npm", ["run", "dev"], { stdio: "inherit", shell: true });
+const port = process.env.DEMO_PORT || "4011";
+const apiBaseUrl = `http://localhost:${port}`;
+const env = { ...process.env, PORT: port, API_BASE_URL: apiBaseUrl };
+
+const dev = spawn("npm", ["run", "dev"], { stdio: "inherit", shell: true, env });
 
 const shutdown = () => {
   if (!dev.killed) {
@@ -14,7 +18,7 @@ const waitForServer = async () => {
   const deadline = Date.now() + 20000;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch("http://localhost:4000/health");
+      const response = await fetch(`${apiBaseUrl}/health`);
       if (response.ok) {
         return;
       }
@@ -27,7 +31,11 @@ const waitForServer = async () => {
 waitForServer()
   .then(() => {
     demoStarted = true;
-    const demo = spawn("npm", ["run", "demo"], { stdio: "inherit", shell: true });
+    const demo = spawn("npm", ["run", "demo"], {
+      stdio: "inherit",
+      shell: true,
+      env
+    });
     demo.on("exit", (code) => {
       shutdown();
       process.exit(code ?? 0);

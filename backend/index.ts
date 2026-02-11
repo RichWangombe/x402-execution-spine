@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import pino from "pino";
 import { AuditLedger } from "./audit/ledger.js";
+import { MetricsStore } from "./observability/metrics.js";
 import { IdempotencyStore } from "./orchestrator/idempotency-store.js";
 import { ensurePermission } from "./orchestrator/permissions.js";
 import {
@@ -21,20 +22,28 @@ const port = Number(process.env.PORT ?? 4000);
 const auditLogPath = process.env.AUDIT_LOG_PATH ?? "./data/audit.jsonl";
 const idempotencyLogPath =
   process.env.IDEMPOTENCY_LOG_PATH ?? "./data/idempotency.jsonl";
+const enforceTestnet = (process.env.ENFORCE_TESTNET ?? "true") !== "false";
 
 const settlementMode = (process.env.X402_MODE ?? "mock") as SettlementMode;
 const settlementConfig = {
   mode: settlementMode,
   facilitatorUrl: process.env.X402_FACILITATOR_URL,
-  apiKey: process.env.X402_API_KEY,
   chainId: Number(process.env.CRONOS_CHAIN_ID ?? 338)
 };
+
+if (enforceTestnet && settlementConfig.chainId !== 338) {
+  throw new Error(
+    "ENFORCE_TESTNET=true requires CRONOS_CHAIN_ID=338 to prevent mainnet settlement"
+  );
+}
 
 const ledger = new AuditLedger({ filePath: auditLogPath });
 const settlementAdapterPromise = createSettlementAdapter(settlementConfig);
 const idempotencyStore = new IdempotencyStore({ filePath: idempotencyLogPath });
+const metrics = new MetricsStore();
 
 app.post("/execute", async (req, res) => {
+  metrics.increment("x402_requests_total");
   try {
     const instruction = validateWorkflowInstruction(req.body);
     const settlementAdapter = await settlementAdapterPromise;
@@ -44,10 +53,12 @@ app.post("/execute", async (req, res) => {
       `${instruction.workflowId}:${instruction.permissionId ?? "none"}`;
     const cached = await idempotencyStore.get(idempotencyKey);
     if (cached) {
+      metrics.increment("x402_idempotent_replays_total");
       if (
         cached.workflowId !== instruction.workflowId ||
         cached.agentId !== instruction.agentId
       ) {
+        metrics.increment("x402_idempotency_conflicts_total");
         res.status(409).json({ error: "Idempotency-Key collision detected" });
         return;
       }
@@ -81,7 +92,11 @@ app.post("/execute", async (req, res) => {
       workflowId: instruction.workflowId,
       agentId: instruction.agentId,
       event: "permission_verified",
-      data: { permissionId: permission.permissionId, settlement: instruction.settlement }
+      data: {
+        permissionId: permission.permissionId,
+        settlement: instruction.settlement,
+        verification: permission.verification
+      }
     });
 
     const result = await executeWorkflow(instruction, {
@@ -102,7 +117,13 @@ app.post("/execute", async (req, res) => {
     res
       .status(200)
       .json({ ...result, permissionId: permission.permissionId, idempotencyKey });
+    if (result.status === "completed") {
+      metrics.increment("x402_workflows_completed_total");
+    } else {
+      metrics.increment("x402_workflows_failed_total");
+    }
   } catch (error) {
+    metrics.increment("x402_request_errors_total");
     const message = error instanceof Error ? error.message : "Unknown error";
     log.error({ err: error }, "execution failed");
     res.status(400).json({ error: message });
@@ -111,6 +132,11 @@ app.post("/execute", async (req, res) => {
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true });
+});
+
+app.get("/metrics", (_req, res) => {
+  res.setHeader("content-type", "text/plain; version=0.0.4; charset=utf-8");
+  res.status(200).send(metrics.toPrometheus());
 });
 
 app.listen(port, () => {

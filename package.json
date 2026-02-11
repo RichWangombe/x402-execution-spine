@@ -9,7 +9,10 @@
   "scripts": {
     "dev": "node --loader ts-node/esm backend/index.ts",
     "demo": "node --loader ts-node/esm scripts/demo-flow.ts",
-    "demo:facilitator": "node --loader ts-node/esm scripts/facilitator-demo.ts",
+    "demo:facilitator": "node --loader ts-node/esm scripts/demo-live.ts",
+    "demo:live": "node --loader ts-node/esm scripts/demo-live.ts",
+    "run:live": "node scripts/run-facilitator-demo.cjs",
+    "example:paid": "node --loader ts-node/esm scripts/paid-endpoint-example.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/backend/index.js"
   },
