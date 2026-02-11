@@ -1,6 +1,8 @@
 const { spawn } = require("node:child_process");
 
-const port = process.env.DEMO_PORT || "4011";
+const port =
+  process.env.DEMO_PORT ||
+  String(4300 + Math.floor(Math.random() * 300));
 const apiBaseUrl = `http://localhost:${port}`;
 const env = { ...process.env, PORT: port, API_BASE_URL: apiBaseUrl };
 

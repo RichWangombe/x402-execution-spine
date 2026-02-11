@@ -1,6 +1,17 @@
 const { spawn } = require("node:child_process");
 
-const port = process.env.LIVE_DEMO_PORT || "4012";
+const missing = [];
+if (!process.env.FACILITATOR_PRIVATE_KEY) {
+  missing.push("FACILITATOR_PRIVATE_KEY");
+}
+if (missing.length > 0) {
+  console.error(`Missing required env vars: ${missing.join(", ")}`);
+  process.exit(1);
+}
+
+const port =
+  process.env.LIVE_DEMO_PORT ||
+  String(4100 + Math.floor(Math.random() * 300));
 const apiBaseUrl = `http://localhost:${port}`;
 const env = {
   ...process.env,

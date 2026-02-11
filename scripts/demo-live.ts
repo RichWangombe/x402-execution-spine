@@ -24,7 +24,7 @@ type ExecuteResponse = {
 const apiBase = process.env.API_BASE_URL ?? "http://localhost:4000";
 const chainId = Number(process.env.CRONOS_CHAIN_ID ?? 338);
 const privateKey = process.env.FACILITATOR_PRIVATE_KEY;
-const receiver = process.env.FACILITATOR_RECEIVER;
+const explicitReceiver = process.env.FACILITATOR_RECEIVER;
 const rpcUrl = process.env.CRONOS_RPC_URL ?? "https://evm-t3.cronos.org/";
 const amountBaseUnits = process.env.FACILITATOR_AMOUNT_BASE_UNITS ?? "1000000";
 const facilitatorUrl = process.env.X402_FACILITATOR_URL;
@@ -35,14 +35,15 @@ if (chainId !== 338) {
   );
 }
 
-if (!privateKey || !receiver) {
-  throw new Error("FACILITATOR_PRIVATE_KEY and FACILITATOR_RECEIVER are required");
+if (!privateKey) {
+  throw new Error("FACILITATOR_PRIVATE_KEY is required");
 }
 
 const network = CronosNetwork.CronosTestnet;
 const asset = Contract.DevUSDCe;
 const provider = new ethers.JsonRpcProvider(rpcUrl);
 const signer = new ethers.Wallet(privateKey, provider);
+const receiver = explicitReceiver ?? signer.address;
 const facilitator = new Facilitator({ network, baseUrl: facilitatorUrl });
 
 const paymentHeader = await facilitator.generatePaymentHeader({
